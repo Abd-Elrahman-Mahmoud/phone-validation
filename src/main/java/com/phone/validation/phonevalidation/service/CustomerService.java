@@ -7,7 +7,11 @@ import com.phone.validation.phonevalidation.model.State;
 import com.phone.validation.phonevalidation.model.dto.CustomerResponse;
 import com.phone.validation.phonevalidation.model.mapper.CustomerMapper;
 import com.phone.validation.phonevalidation.repositories.CustomerRepository;
+import com.phone.validation.phonevalidation.util.DataUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -24,24 +28,24 @@ public class CustomerService {
     @Autowired
     CustomerMapper customerMapper;
 
-    public List<CustomerResponse> filterByCountry(String name) {
+    public Page<CustomerResponse> filterByCountry(String name, Pageable pageable) {
 
-        List<CustomerResponse> customersResultList = new ArrayList<>();
-        Optional<Country> matchedCountry = ContriesLoading.countries.stream().filter(country -> country.getName().equals(name)).findFirst();
+        Page<CustomerResponse> customersResultList = new PageImpl<>(new ArrayList<>());
+        Optional<Country> matchedCountry = DataUtil.safeStream(ContriesLoading.countries).filter(country -> country.getName().equals(name)).findFirst();
         if (matchedCountry.isPresent()) {
             List<Customer> customers = customerRepository.findAll();
-            customers = customers.stream().filter(customer -> customer.getPhone().matches(matchedCountry.get().getRegex())).collect(Collectors.toList());
-            customersResultList = customerMapper.customersToCustomersResponse(customers, matchedCountry.get().getName());
+            customers = DataUtil.safeStream(customers).filter(customer -> customer.getPhone().matches(matchedCountry.get().getRegex())).collect(Collectors.toList());
+            customersResultList = customerMapper.customersToCustomersResponse(customers, matchedCountry.get().getName(), pageable);
         }
         return customersResultList;
     }
 
-    public List<CustomerResponse> filterByState(State state) {
+    public Page<CustomerResponse> filterByState(State state, Pageable pageable) {
 
         List<CustomerResponse> customersResultList = new ArrayList<>();
         List<Customer> customers = customerRepository.findAll();
         customers.forEach(customer -> {
-            Optional<Country> matchedCountry = ContriesLoading.countries.stream().filter(country -> customer.getPhone().matches(country.getRegex())).findFirst();
+            Optional<Country> matchedCountry = DataUtil.safeStream(ContriesLoading.countries).filter(country -> customer.getPhone().matches(country.getRegex())).findFirst();
             if (state.equals(State.VALID) && matchedCountry.isPresent()) {
                 CustomerResponse customerResponse = customerMapper.customerToCustomerResponse(customer, matchedCountry.get().getName());
                 customersResultList.add(customerResponse);
@@ -50,19 +54,19 @@ public class CustomerService {
                 customersResultList.add(customerResponse);
             }
         });
-        return customersResultList;
+        return customerMapper.customersListToCustomersResponseList(customersResultList, pageable);
     }
 
-    public List<CustomerResponse> getAllCustomers() {
+    public Page<CustomerResponse> getAllCustomers(Pageable pageable) {
         List<CustomerResponse> customersResultList = new ArrayList<>();
-        List<Customer> customers = customerRepository.findAll();
+        Page<Customer> customers = customerRepository.findAll(pageable);
         customers.forEach(customer -> {
-            Optional<Country> matchedCountry = ContriesLoading.countries.stream().filter(country -> customer.getPhone().matches(country.getRegex())).findFirst();
+            Optional<Country> matchedCountry = DataUtil.safeStream(ContriesLoading.countries).filter(country -> customer.getPhone().matches(country.getRegex())).findFirst();
             CustomerResponse customerResponse;
             String countryName = (matchedCountry.isPresent() ? matchedCountry.get().getName() : "");
             customerResponse = customerMapper.customerToCustomerResponse(customer, countryName);
             customersResultList.add(customerResponse);
         });
-        return customersResultList;
+        return new PageImpl<>(customersResultList, pageable, customersResultList.size());
     }
 }

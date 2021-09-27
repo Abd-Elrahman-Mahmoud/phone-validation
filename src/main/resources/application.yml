@@ -1,0 +1,14 @@
+server:
+  servlet:
+    context-path: /phone-validation
+spring:
+  datasource:
+    driver-class-name: org.sqlite.JDBC
+    url: jdbc:sqlite:sample.db
+    username: admin
+    password: admin
+  jpa:
+    database-platform: com.phone.validation.phonevalidation.sqllite.SQLDialect
+    hibernate:
+      ddl: false
+    show-sql: true
